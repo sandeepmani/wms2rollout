@@ -19,6 +19,7 @@ class WHConfig
         :product_masters => {
             :base_query => {
                 :query => "select fsn, sku from product_details group by seller_id",
+                # haven't created query builder (from below params) using direct query for now
                 :tables => ["product_details"],
                 :select => "fsn, sku",
                 :joins => "",
@@ -27,13 +28,17 @@ class WHConfig
 
             },
             :options => {
-                :direct_insert => "",
-                :batch_type => ""
+                :direct_insert => false,
+                :batch_type => "primary_key",
 
             },
             :map => {
+                :id => :auto_increament,
                 :fsn => "fsn",
-                :sku => "sku"
+                :sku => "sku",
+                :status => ["status", lambda {|text| text.to_s }],
+                :created_at => :current_time,
+                :updated_at => :current_time,
 
             },
 
