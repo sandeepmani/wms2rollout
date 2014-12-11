@@ -22,7 +22,10 @@ end
 
 
 class BaseConfig
-  # batch_size=100
+  DEFAULT_BATCH_SIZE=100
+  DEFAULT_DURATION = 60 # in minutes
+
+
   MIGRATION_RULES = {
       :product_masters => {
           :base_query => {
@@ -197,7 +200,7 @@ class AnomalyDetector < BaseConfig
     q
   end
 
-  def run_ad_for_table(table_name)
+  def run_ad(table_name)
 
   end
 end
@@ -208,13 +211,13 @@ end
 
 class TaskManager
   attr_accessor :tables,:time_frame_size ,:table_states, :task_completed ,:task_type
-  def initialize(task_type)
+  def initialize()
     self.table_states = read_file(table_status)
     (BaseConfig::MIGRATION_RULES.keys - table_states.keys).each do |table|
       self.table_states[table] = ["not migrated", nil]
     end
     write_file(table_status)
-    self.task_type = task_type
+    # self.task_type = task_type
 
 
   end
@@ -241,9 +244,37 @@ class TaskManager
     write_file(table_status)
   end
 
+
+
+  def remigrate(table_arr)
+
+  end
+
+  def run_anomaly_detector_for(table_name,)
+    table_arr.each do |table|
+      task = AnomalyDetector.new(table).migrate
+      if task != :success
+        break
+      else
+        self.table_states[table] = ["migrated" , Time.now]
+      end
+    end
+    write_file(table_status)
+  end
+
+  def resume_anomaly_detector
+
+  end
+
 end
 
-TaskManager.new(:migration).migrate([:product_master,])
+
+##########################################   Usage ###########################################
+
+TaskManager.new.migrate([:product_master,:in])
+TaskManager.new.remigrate([:product_master])
+TaskManager.new.run_anomaly_detector_for([:product_master])
+TaskManager.new.resume_anomaly_detector
 
 
 
