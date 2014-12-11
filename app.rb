@@ -109,7 +109,7 @@ class Migration
     self.target = TargetTable.new(table_name)
     self.current_batch=0
     self.completed_count=0
-    self.limit=2
+    self.limit=BaseConfig::DEFAULT_BATCH_SIZE
     self.total_count=0
   end
 
@@ -169,9 +169,10 @@ end
 class AnomalyDetector < BaseConfig
   attr_accessor :time_range,:target
 
-  def initialize(target_table)
+  def initialize(target_table,time_range)
     # super()
     self.db = DBConfig.new()
+    self.time_range = time_range
     self.target = TargetTable.new(table_name)
 
   end
@@ -251,14 +252,9 @@ class TaskManager
   end
 
   def run_anomaly_detector_for(table_name,)
-    table_arr.each do |table|
-      task = AnomalyDetector.new(table).migrate
-      if task != :success
-        break
-      else
-        self.table_states[table] = ["migrated" , Time.now]
-      end
-    end
+
+    task = AnomalyDetector.new(table).migrate
+    self.table_states[table_name] = ["migrated" , Time.now]
     write_file(table_status)
   end
 
@@ -272,9 +268,12 @@ end
 ##########################################   Usage ###########################################
 
 TaskManager.new.migrate([:product_master,:in])
+
 TaskManager.new.remigrate([:product_master])
+
 TaskManager.new.run_anomaly_detector_for([:product_master])
-TaskManager.new.resume_anomaly_detector
+
+TaskManager.new.resume_anomaly_detector #
 
 
 
