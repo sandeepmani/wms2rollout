@@ -1,91 +1,74 @@
+##########################################   Base Config ###########################################
+
 require "mysql2"
+Mysql2::Client.default_query_options.merge!(:as => :array)
 
-
-class WHConfig
-  attr_accessor :db_client, :migrations, :db_details
-
+class DBConfig
+  attr_accessor :client, :db_details
   def initialize
     # batch_size=100
-
     self.db_details={
         :host => "localhost",
         :username => "root",
         :database => "warehouse_b2b_development",
 
     }
-    Mysql2::Client.default_query_options.merge!(:as => :array)
-    self.db_client = Mysql2::Client.new(db_details)
-    self.migrations = {
-        :product_masters => {
-            :base_query => {
-                :query => "select fsn, sku from product_details group by seller_id",
-                # haven't created query builder (from below params) using direct query for now
-                :tables => ["product_details"],
-                :select => "fsn, sku",
-                :joins => "",
-                :additional =>""
-
-
-            },
-            :options => {
-                :direct_insert => false,
-                :batch_type => "primary_key",
-
-            },
-            :map => {
-                :id => :auto_increament,
-                :fsn => "fsn",
-                :sku => "sku",
-                :status => ["status", lambda {|text| text.to_s }],
-                :created_at => :current_time,
-                :updated_at => :current_time,
-
-            },
-
-        },
-
-    }
-
-
+    self.client = Mysql2::Client.new(db_details)
   end
 
-  def get_target_table_fields_in_order(table_name)
-    # puts db_client.query("show fields from #{table_name}").each{|c| puts c[1]}
-    db_client.query("show fields from #{table_name}").collect { |c| c[0].to_sym }
-  end
+  MIGRATION_RULES = {
+      :product_masters => {
+          :base_query => {
+              :query => "select fsn, sku from product_details group by seller_id",
+              # haven't created query builder (from below params) using direct query for now
+              :tables => ["product_details"],
+              :select => "fsn, sku",
+              :joins => "",
+              :additional =>""
+
+
+          },
+          :options => {
+              :direct_insert => false,
+              :batch_type => "primary_key",
+
+          },
+          :map => {
+              :id => :auto_increament,
+              :fsn => "fsn",
+              :sku => "sku",
+              :status => ["status", lambda {|text| text.to_s },lambda {|str| str.to_s }],
+              :created_at => :current_time,
+              :updated_at => :current_time,
+
+          },
+
+      },
+
+  }
+
 
 end
 
 
-class Migration < WHConfig
+##########################################   TargetTable ###########################################
+
+
+class TargetTable
   attr_accessor :target_table, :total_count, :errors, :current_batch, :completed_count, :limit, :rule
-
-  def initialize(target_table)
-    super()
-    self.target_table=target_table
-    self.current_batch=0
-    self.completed_count=0
-    self.limit=2
-    self.total_count=0
-    # self.field_index =  Hash[fields.map.with_index.to_a]
-    self.rule = self.migrations[target_table]
-    puts self
+  def initialize(name)
+    self.db = DBConfig.new()
+    self.name=name
+    self.fields = :fwfwf
+    self.rule = self.migration_rules[target_table]
   end
 
-
-  def batch_fetch_query()
-    q=rule[:base_query][:query]+ " limit " + limit.to_s + " offset " + (completed_count).to_s
-    puts q
-    q
+  def get_fields_in_order
+    # puts db_client.query("show fields from #{table_name}").each{|c| puts c[1]}
+    db.client.query("show fields from #{name}").collect { |c| c[0].to_sym }
   end
 
-  def batch_insert_query(records)
-    q="insert into #{target_table} (#{get_target_table_fields_in_order(target_table).join(",")}) values " + records.collect { |o| "(#{string_in_quotes(o).join(",")})" }.join(",") + ";"
-    puts q
-    q
-  end
-
-  def string_in_quotes(arr)
+  def embed_string_in_quotes(arr)
     arr.collect { |a| a.class.to_s=="String" ? "'#{a}'" : a }
   end
 
@@ -99,6 +82,43 @@ class Migration < WHConfig
     end
     record
   end
+  def construct_source_record(row, header)
+  end
+
+end
+
+##########################################   Migration ###########################################
+
+
+class Migration
+  attr_accessor  :target, :current_batch, :completed_count, :limit
+
+  def initialize(table_name)
+    # super()
+    self.db = DBConfig.new()
+    self.target = TargetTable.new(table_name)
+    self.current_batch=0
+    self.completed_count=0
+    self.limit=2
+    self.total_count=0
+  end
+
+
+  def batch_fetch_query()
+    q=target.rule[:base_query][:query]+ " limit " + limit.to_s + " offset " + (completed_count).to_s
+    puts q
+    q
+  end
+
+  def batch_insert_query(records)
+    q="insert into #{target.name} (#{target.get_fields_in_order.join(",")}) values " +
+        records.collect { |o| "(#{target.string_in_quotes(o).join(",")})" }.join(",") +
+        ";"
+    puts q
+    q
+  end
+
+
 
   def migrate()
     # result = client.query("SELECT * FROM really_big_Table", :stream => true)
@@ -128,9 +148,40 @@ class Migration < WHConfig
 end
 
 
-class AD < WHConfig
-  def initialize(target_table)
+##########################################   AnomalyDetector ###########################################
 
+
+class AnomalyDetector < BaseConfig
+  attr_accessor :time_range,:target
+
+  def initialize(target_table)
+    super()
+    self.target = TargetTable.new(table_name)
+
+  end
+
+  def batch_source_fetch_query()
+    q=rule[:base_query][:query]+ " limit " + limit.to_s + " offset " + (completed_count).to_s
+    puts q
+    q
+  end
+
+  def batch_target_fetch_query(records)
+    q="insert into #{target_table} (#{get_target_table_fields_in_order(target_table).join(",")}) values " + records.collect { |o| "(#{string_in_quotes(o).join(",")})" }.join(",") + ";"
+    puts q
+    q
+  end
+
+  def batch_source_validate_query(records)
+    q="insert into #{target_table} (#{get_target_table_fields_in_order(target_table).join(",")}) values " + records.collect { |o| "(#{string_in_quotes(o).join(",")})" }.join(",") + ";"
+    puts q
+    q
+  end
+
+  def batch_target_validate_query(records)
+    q="insert into #{target_table} (#{get_target_table_fields_in_order(target_table).join(",")}) values " + records.collect { |o| "(#{string_in_quotes(o).join(",")})" }.join(",") + ";"
+    puts q
+    q
   end
 
   def run_ad_for_table(table_name)
@@ -139,14 +190,31 @@ class AD < WHConfig
 end
 
 
-class ActivityState
+##########################################   ActivityStatus ###########################################
+
+
+class ActivityStatus
+  attr_accessor :tables,:time_frame_size ,:table_states
+  def initialize()
+
+    BaseConfig::MIGRATION_RULES.keys
+
+
+  end
+
+
+
 
 end
+
+
 
 Migration.new(:product_masters).migrate
 
 
 
+
+#######################################################################################################
 
 
 # relationships= ""
