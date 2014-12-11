@@ -1,4 +1,4 @@
-##########################################   Base Config ###########################################
+##########################################   DBConfig ###########################################
 
 class DBConfig
 
@@ -18,6 +18,7 @@ class DBConfig
   end
 end
 
+##########################################   BaseConfig ###########################################
 
 
 class BaseConfig
@@ -149,6 +150,11 @@ class Migration
 
     end
 
+    return  validate_success
+  end
+
+  def validate_success
+    :sucess
   end
 
 end
@@ -197,26 +203,49 @@ class AnomalyDetector < BaseConfig
 end
 
 
-##########################################   ActivityStatus ###########################################
+##########################################   TaskManager ###########################################
 
 
-class ActivityStatus
-  attr_accessor :tables,:time_frame_size ,:table_states
-  def initialize()
-
-    BaseConfig::MIGRATION_RULES.keys
+class TaskManager
+  attr_accessor :tables,:time_frame_size ,:table_states, :task_completed ,:task_type
+  def initialize(task_type)
+    self.table_states = read_file(table_status)
+    (BaseConfig::MIGRATION_RULES.keys - table_states.keys).each do |table|
+      self.table_states[table] = ["not migrated", nil]
+    end
+    write_file(table_status)
+    self.task_type = task_type
 
 
   end
 
 
 
+  def self.read_file()
+
+  end
+
+  def self.write_file()
+
+  end
+
+  def migrate(table_arr)
+    table_arr.each do |table|
+     task = Migration.new(table).migrate
+     if task != :success
+       break
+     else
+       self.table_states[table] = ["migrated" , Time.now]
+     end
+    end
+    write_file(table_status)
+  end
 
 end
 
+TaskManager.new(:migration).migrate([:product_master,])
 
 
-Migration.new(:product_masters).migrate
 
 
 
