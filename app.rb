@@ -29,12 +29,15 @@ class BaseConfig
   MIGRATION_RULES = {
       :product_masters => {
           :base_query => {
-              :query => "select fsn, sku from product_details group by seller_id",
+              # :query => "select fsn, sku from product_details ",
               # haven't created query builder (from below params) using direct query for now
               :tables => ["product_details"],
+
+
               :select => "fsn, sku",
-              :joins => "",
-              :additional =>""
+              :from_and_join => "from product_details",
+              :where  => "",
+              :additional =>"group by seller_id"
 
 
           },
@@ -69,8 +72,14 @@ class TargetTable
   def initialize(name)
     self.db = DBConfig.new()
     self.name=name
-    self.fields = :fwfwf
     self.rule = self.migration_rules[target_table]
+    self.filtered_map = rule[:map].select{|key,value| if value.class.name != "Symbol" }
+    self.reverse_filterd_map =
+    self.filtered_target_fields = filtered_map.keys
+    self.filtered_source_fields = target_fields.collect{|f| filtered_map[f].class.name == "String" ? filtered_map[f] : filtered_map[f][0]}
+
+    self.query_params = self.migration_rules[target_table][:base_query]
+
   end
 
   def get_fields_in_order
@@ -87,8 +96,9 @@ class TargetTable
 
   def construct_target_record(row, header)
     record = []
-    get_target_table_fields_in_order(target_table).each do |field|
-      record << row[header.index(rule[:map][field])]
+    filtered_target_fields.each do |field|
+      value = row[header.index(rule[:map][field])]
+      record < filtered_map[field].class.name == "String" ? value : filtered_map[field][1].call(value)
     end
     record
   end
@@ -101,7 +111,7 @@ end
 
 
 class Migration
-  attr_accessor  :target, :current_batch, :completed_count, :limit
+  attr_accessor  :target, :current_batch, :completed_count, :limit,:total_count
 
   def initialize(table_name)
     # super()
@@ -115,19 +125,39 @@ class Migration
 
 
   def batch_fetch_query()
-    q=target.rule[:base_query][:query]+ " limit " + limit.to_s + " offset " + (completed_count).to_s
+    q=  "select" + query_params[:select]+
+         query_params[:from_and_join]+
+        (query_params[:where] = "" ? "" : "where") + query_params[:where]+
+         query_params[:additional]+
+        " limit " + limit.to_s +
+        " offset " + (completed_count).to_s
     puts q
     q
   end
 
   def batch_insert_query(records)
-    q="insert into #{target.name} (#{target.get_fields_in_order.join(",")}) values " +
+    q="insert into #{target.name} (#{get_insert_fields.join(",")}) values " +
         records.collect { |o| "(#{target.string_in_quotes(o).join(",")})" }.join(",") +
         ";"
     puts q
     q
   end
 
+  def get_insert_fields
+    (target.rule[:map].keys-target.filtered_target_fields).each do |f|
+      target.filtered_target_fields << f if target.rule[:map][f] != :auto_increament
+    end
+  end
+
+  def construct_insert_record(row, header)
+    record = construct_target_record(row, header)
+
+    (target.rule[:map].keys-target.filtered_target_fields).each do |f|
+      record << "Now" if target.rule[:map][f] != :auto_increament
+    end
+
+    record
+  end
 
 
   def migrate()
@@ -137,7 +167,7 @@ class Migration
       records=[]
       header = results.fields
       results.each do |row|
-        records << construct_target_record(row, header)
+        records << construct_insert_record(row, header)
       end
 
 
@@ -178,25 +208,21 @@ class AnomalyDetector < BaseConfig
   end
 
   def batch_source_fetch_query()
-    q=rule[:base_query][:query]+ " limit " + limit.to_s + " offset " + (completed_count).to_s
     puts q
     q
   end
 
   def batch_target_fetch_query(records)
-    q="insert into #{target_table} (#{get_target_table_fields_in_order(target_table).join(",")}) values " + records.collect { |o| "(#{string_in_quotes(o).join(",")})" }.join(",") + ";"
     puts q
     q
   end
 
   def batch_source_validate_query(records)
-    q="insert into #{target_table} (#{get_target_table_fields_in_order(target_table).join(",")}) values " + records.collect { |o| "(#{string_in_quotes(o).join(",")})" }.join(",") + ";"
     puts q
     q
   end
 
   def batch_target_validate_query(records)
-    q="insert into #{target_table} (#{get_target_table_fields_in_order(target_table).join(",")}) values " + records.collect { |o| "(#{string_in_quotes(o).join(",")})" }.join(",") + ";"
     puts q
     q
   end
@@ -283,10 +309,3 @@ TaskManager.new.resume_anomaly_detector #
 #######################################################################################################
 
 
-# relationships= ""
-# start_result_array = ""
-#can start with
-#expansions - by join query
-#same - table
-#compression  = fiter query
-#batching - id based , date based ,
