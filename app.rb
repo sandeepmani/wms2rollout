@@ -1,12 +1,13 @@
 ##########################################   Base Config ###########################################
 
-require "mysql2"
-Mysql2::Client.default_query_options.merge!(:as => :array)
-
 class DBConfig
+
+  require "mysql2"
+  Mysql2::Client.default_query_options.merge!(:as => :array)
+
   attr_accessor :client, :db_details
+
   def initialize
-    # batch_size=100
     self.db_details={
         :host => "localhost",
         :username => "root",
@@ -15,7 +16,12 @@ class DBConfig
     }
     self.client = Mysql2::Client.new(db_details)
   end
+end
 
+
+
+class BaseConfig
+  # batch_size=100
   MIGRATION_RULES = {
       :product_masters => {
           :base_query => {
@@ -155,7 +161,8 @@ class AnomalyDetector < BaseConfig
   attr_accessor :time_range,:target
 
   def initialize(target_table)
-    super()
+    # super()
+    self.db = DBConfig.new()
     self.target = TargetTable.new(table_name)
 
   end
