@@ -125,9 +125,9 @@ class Migration
 
 
   def batch_fetch_query()
-    q=  "select" + query_params[:select]+
+    q=  " select " + query_params[:select]+
          query_params[:from_and_join]+
-        (query_params[:where] = "" ? "" : "where") + query_params[:where]+
+        (query_params[:where] = "" ? "" : " where ") + query_params[:where]+
          query_params[:additional]+
         " limit " + limit.to_s +
         " offset " + (completed_count).to_s
@@ -153,7 +153,7 @@ class Migration
     record = construct_target_record(row, header)
 
     (target.rule[:map].keys-target.filtered_target_fields).each do |f|
-      record << "Now" if target.rule[:map][f] != :auto_increament
+      record << "Now()" if target.rule[:map][f] != :auto_increament
     end
 
     record
@@ -207,12 +207,27 @@ class AnomalyDetector < BaseConfig
 
   end
 
+  def construct_time_frame_conditions
+
+  end
+
+  end
+
+
+
   def batch_source_fetch_query()
+    q=  " select " + query_params[:select]+
+        query_params[:from_and_join]+
+        (query_params[:where] = "" ? "" : " where ") + query_params[:where]+
+    " and " + construct_time_frame_conditions
+        query_params[:additional]+
+
     puts q
     q
   end
 
   def batch_target_fetch_query(records)
+    q="select #{ } from target.name where #{}"
     puts q
     q
   end
