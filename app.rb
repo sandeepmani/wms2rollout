@@ -28,22 +28,14 @@ class BaseConfig
 
   MIGRATION_RULES = {
       :product_masters => {
-          :base_query => {
-              # :query => "select fsn, sku from product_details ",
-              # haven't created query builder (from below params) using direct query for now
-              :tables => ["product_details"],
-
-
+          :query_params => {
               :select => "fsn, sku",
               :from_and_join => "from product_details",
               :where  => "",
-              :additional =>"group by seller_id"
+              :additional =>"group by seller_id",
 
+              :tables => ["product_details"],
 
-          },
-          :options => {
-              :direct_insert => false,
-              :batch_type => "primary_key",
 
           },
           :map => {
@@ -53,6 +45,11 @@ class BaseConfig
               :status => ["status", lambda {|text| text.to_s },lambda {|str| str.to_s }],
               :created_at => :current_time,
               :updated_at => :current_time,
+
+          },
+          :options => {
+              :direct_insert => false,
+              :batch_type => "timestamp",
 
           },
 
@@ -73,13 +70,12 @@ class TargetTable
     self.db = DBConfig.new()
     self.name=name
     self.rule = self.migration_rules[target_table]
-    self.filtered_map = rule[:map].select{|key,value| if value.class.name != "Symbol" }
-    self.reverse_filterd_map =
+    self.filtered_map = rule[:map].select { |key,value| value.class.name != "Symbol" }
+    # self.reverse_filterd_map =
     self.filtered_target_fields = filtered_map.keys
     self.filtered_source_fields = target_fields.collect{|f| filtered_map[f].class.name == "String" ? filtered_map[f] : filtered_map[f][0]}
 
-    self.query_params = self.migration_rules[target_table][:base_query]
-
+    self.query_params = self.migration_rules[target_table][:query_params]
   end
 
   def get_fields_in_order
@@ -187,7 +183,7 @@ class Migration
   end
 
   def validate_success
-    :sucess
+    :success
   end
 
 end
@@ -202,24 +198,29 @@ class AnomalyDetector < BaseConfig
   def initialize(target_table,time_range)
     # super()
     self.db = DBConfig.new()
-    self.time_range = time_range
     self.target = TargetTable.new(table_name)
+    
+    self.time_range = time_range
+    self.time_range_sql = time_range
+
 
   end
 
-  def construct_time_frame_conditions
 
+
+  def between_time_frame_condition(table)
+    ["created_at","updated_at"]
+        .collect{|f| " (#{table}.#{f} > #{time_range_sql[0]} and #{table}.#{f} < #{time_range_sql[1]}) "  }
+        .join(" or ")
   end
 
   end
-
-
 
   def batch_source_fetch_query()
     q=  " select " + query_params[:select]+
         query_params[:from_and_join]+
         (query_params[:where] = "" ? "" : " where ") + query_params[:where]+
-    " and " + construct_time_frame_conditions
+    " and " + query_params[:tables].collect{|c| " (#{between_time_frame_condition(c)}) " }.join(" and ")
         query_params[:additional]+
 
     puts q
@@ -227,7 +228,7 @@ class AnomalyDetector < BaseConfig
   end
 
   def batch_target_fetch_query(records)
-    q="select #{ } from target.name where #{}"
+    q="select #{filtered_target_fields.join(" , ")} from #{target.name} where #{between_time_frame_condition(target.name)}"
     puts q
     q
   end
