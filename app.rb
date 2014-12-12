@@ -22,14 +22,15 @@ end
 
 
 class BaseConfig
-  DEFAULT_BATCH_SIZE=100
+  DEFAULT_BATCH_SIZE=2
   DEFAULT_DURATION = 60 # in minutes
 
 
   MIGRATION_RULES = {
-      :product_masters => {
+
+      :product_master => {
           :query_params => {
-              :select => "fsn, sku",
+              :select => "fsn, sku,binding_attribute",
               :from_and_join => "from product_details",
               :where  => "",
               :additional =>"group by seller_id",
@@ -42,6 +43,36 @@ class BaseConfig
               :id => :auto_increament,
               :fsn => "fsn",
               :sku => "sku",
+              :status => ["binding_attribute", lambda {|text| text.to_i },lambda {|str| str.to_s }],
+              :created_at => :current_time,
+              :updated_at => :current_time,
+
+          },
+          :options => {
+              :direct_insert => false,
+              :batch_type => "timestamp",
+
+          },
+
+      },
+
+
+
+      :inventory_defining_attributes => {
+          :query_params => {
+              :select => "product_master.id, product_details.seller_id",
+              :from_and_join => "from product_master  inner join product_details on product_master.fsn = product_details.fsn and product_master.sku = product_details.sku",
+              :where  => "",
+              :additional =>"",
+
+              :tables => ["product_master","product_details"],
+
+
+          },
+          :map => {
+              :id => :auto_increament,
+              :product_master_id => "product_master.id",
+              :seller_id => "product_details.seller_id",
               :status => ["status", lambda {|text| text.to_s },lambda {|str| str.to_s }],
               :created_at => :current_time,
               :updated_at => :current_time,
@@ -65,17 +96,17 @@ end
 
 
 class TargetTable
-  attr_accessor :target_table, :total_count, :errors, :current_batch, :completed_count, :limit, :rule
+  attr_accessor :db, :name, :rule, :filtered_map, :filtered_target_fields, :filtered_source_fields, :query_params
   def initialize(name)
     self.db = DBConfig.new()
     self.name=name
-    self.rule = self.migration_rules[target_table]
+    self.rule = BaseConfig::MIGRATION_RULES[name]
     self.filtered_map = rule[:map].select { |key,value| value.class.name != "Symbol" }
     # self.reverse_filterd_map =
     self.filtered_target_fields = filtered_map.keys
-    self.filtered_source_fields = target_fields.collect{|f| filtered_map[f].class.name == "String" ? filtered_map[f] : filtered_map[f][0]}
+    self.filtered_source_fields = filtered_target_fields.collect{|f| filtered_map[f].class.name == "String" ? filtered_map[f] : filtered_map[f][0]}
 
-    self.query_params = self.migration_rules[target_table][:query_params]
+    self.query_params = BaseConfig::MIGRATION_RULES[name][:query_params]
   end
 
   def get_fields_in_order
@@ -93,10 +124,11 @@ class TargetTable
   def construct_target_record(row, header)
     record = []
     filtered_target_fields.each do |field|
-      value = row[header.index(rule[:map][field])]
-      record < filtered_map[field].class.name == "String" ? value : filtered_map[field][1].call(value)
+      source_field = filtered_map[field].class.name == "Array" ?  filtered_map[field][0] : filtered_map[field]
+      value = row[header.index(source_field)]
+      record << (filtered_map[field].class.name == "Array" ?  filtered_map[field][1].call(value) : value)
     end
-    record
+    embed_string_in_quotes(record)
   end
   def construct_source_record(row, header)
   end
@@ -107,7 +139,7 @@ end
 
 
 class Migration
-  attr_accessor  :target, :current_batch, :completed_count, :limit,:total_count
+  attr_accessor  :target, :current_batch, :completed_count, :limit,:total_count,:db,:qquery
 
   def initialize(table_name)
     # super()
@@ -121,19 +153,19 @@ class Migration
 
 
   def batch_fetch_query()
-    q=  " select " + query_params[:select]+
-         query_params[:from_and_join]+
-        (query_params[:where] = "" ? "" : " where ") + query_params[:where]+
-         query_params[:additional]+
-        " limit " + limit.to_s +
+    q=  " select " + target.query_params[:select]+ " " +
+          target.query_params[:from_and_join] + " " +
+        (target.query_params[:where] == "" ? "" : " where ") + target.query_params[:where]+ " " +
+        target.query_params[:additional]+ " " +
+        " limit " + limit.to_s + " " +
         " offset " + (completed_count).to_s
-    puts q
+        puts q
     q
   end
 
   def batch_insert_query(records)
     q="insert into #{target.name} (#{get_insert_fields.join(",")}) values " +
-        records.collect { |o| "(#{target.string_in_quotes(o).join(",")})" }.join(",") +
+        records.collect { |o| "(#{o.join(",")})" }.join(",") +
         ";"
     puts q
     q
@@ -146,7 +178,7 @@ class Migration
   end
 
   def construct_insert_record(row, header)
-    record = construct_target_record(row, header)
+    record = target.construct_target_record(row, header)
 
     (target.rule[:map].keys-target.filtered_target_fields).each do |f|
       record << "Now()" if target.rule[:map][f] != :auto_increament
@@ -159,7 +191,7 @@ class Migration
   def migrate()
     # result = client.query("SELECT * FROM really_big_Table", :stream => true)
     while true
-      results = db_client.query(batch_fetch_query)
+      results = db.client.query(batch_fetch_query)
       records=[]
       header = results.fields
       results.each do |row|
@@ -174,7 +206,7 @@ class Migration
       if results.size <= 0
         break
       else
-        inserted = db_client.query(batch_insert_query(records))
+        inserted = db.client.query(batch_insert_query(records))
       end
 
     end
@@ -183,6 +215,7 @@ class Migration
   end
 
   def validate_success
+    # for post migration validation logic
     :success
   end
 
@@ -193,7 +226,7 @@ end
 
 
 class AnomalyDetector < BaseConfig
-  attr_accessor :time_range,:target
+  attr_accessor :time_range,:target, :db ,:time_range_sql
 
   def initialize(target_table,time_range)
     # super()
@@ -211,17 +244,16 @@ class AnomalyDetector < BaseConfig
   def between_time_frame_condition(table)
     ["created_at","updated_at"]
         .collect{|f| " (#{table}.#{f} > #{time_range_sql[0]} and #{table}.#{f} < #{time_range_sql[1]}) "  }
-        .join(" or ")
+          .join(" or ")
   end
 
-  end
 
   def batch_source_fetch_query()
-    q=  " select " + query_params[:select]+
-        query_params[:from_and_join]+
-        (query_params[:where] = "" ? "" : " where ") + query_params[:where]+
-    " and " + query_params[:tables].collect{|c| " (#{between_time_frame_condition(c)}) " }.join(" and ")
-        query_params[:additional]+
+    q=  " select " + target.query_params[:select]+ " " +
+        target.query_params[:from_and_join]+ " " +
+        (target.query_params[:where] == "" ? "" : " where ") + target.query_params[:where]+ " " +
+        " and " + target.query_params[:tables].collect{|c| " (#{between_time_frame_condition(c)}) " }.join(" and ") + " " +
+        target.query_params[:additional]
 
     puts q
     q
@@ -233,7 +265,8 @@ class AnomalyDetector < BaseConfig
     q
   end
 
-  def batch_source_validate_query(records)
+  def batch_source_validate_query(records)a
+    "select"
     puts q
     q
   end
@@ -253,7 +286,7 @@ end
 
 
 class TaskManager
-  attr_accessor :tables,:time_frame_size ,:table_states, :task_completed ,:task_type
+  attr_accessor :tables ,:table_states, :task_completed ,:task_type
   def initialize()
     self.table_states = read_file(table_status)
     (BaseConfig::MIGRATION_RULES.keys - table_states.keys).each do |table|
@@ -293,7 +326,7 @@ class TaskManager
 
   end
 
-  def run_anomaly_detector_for(table_name,)
+  def run_anomaly_detector_for(table_name)
 
     task = AnomalyDetector.new(table).migrate
     self.table_states[table_name] = ["migrated" , Time.now]
@@ -309,13 +342,15 @@ end
 
 ##########################################   Usage ###########################################
 
-TaskManager.new.migrate([:product_master,:in])
+Migration.new(:product_master).migrate
 
-TaskManager.new.remigrate([:product_master])
-
-TaskManager.new.run_anomaly_detector_for([:product_master])
-
-TaskManager.new.resume_anomaly_detector #
+# TaskManager.new.migrate([:product_master,:in])
+#
+# TaskManager.new.remigrate([:product_master])
+#
+# TaskManager.new.run_anomaly_detector_for([:product_master])
+#
+# TaskManager.new.resume_anomaly_detector #
 
 
 
