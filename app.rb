@@ -30,12 +30,11 @@ class BaseConfig
 
       :product_master => {
           :query_params => {
-              :select => "fsn, sku,binding_attribute",
               :from_and_join => "from product_details",
-              :where  => "",
+              :conditions  => "",
               :additional =>"group by seller_id",
 
-              :tables => ["product_details"],
+              :tables => ["product_details"], #
 
 
           },
@@ -60,9 +59,8 @@ class BaseConfig
 
       :inventory_defining_attributes => {
           :query_params => {
-              :select => "product_master.id, product_details.seller_id",
               :from_and_join => "from product_master  inner join product_details on product_master.fsn = product_details.fsn and product_master.sku = product_details.sku",
-              :where  => "",
+              :conditions  => "",
               :additional =>"",
 
               :tables => ["product_master","product_details"],
@@ -149,13 +147,16 @@ class Migration
     self.completed_count=0
     self.limit=BaseConfig::DEFAULT_BATCH_SIZE
     self.total_count=0
+    self.insert_fields =  (target.rule[:map].keys-target.filtered_target_fields).each do |f|
+      target.filtered_target_fields << f if target.rule[:map][f] != :auto_increament
+    end
   end
 
 
   def batch_fetch_query()
-    q=  " select " + target.query_params[:select]+ " " +
+    q=  " select " + target.filtered_source_fields,join(",")+ " " +
           target.query_params[:from_and_join] + " " +
-        (target.query_params[:where] == "" ? "" : " where ") + target.query_params[:where]+ " " +
+        (target.query_params[:conditions] == "" ? "" : " where ") + target.query_params[:conditions]+ " " +
         target.query_params[:additional]+ " " +
         " limit " + limit.to_s + " " +
         " offset " + (completed_count).to_s
@@ -164,17 +165,11 @@ class Migration
   end
 
   def batch_insert_query(records)
-    q="insert into #{target.name} (#{get_insert_fields.join(",")}) values " +
+    q="insert into #{target.name} (#{insert_fields.join(",")}) values " +
         records.collect { |o| "(#{o.join(",")})" }.join(",") +
         ";"
     puts q
     q
-  end
-
-  def get_insert_fields
-    (target.rule[:map].keys-target.filtered_target_fields).each do |f|
-      target.filtered_target_fields << f if target.rule[:map][f] != :auto_increament
-    end
   end
 
   def construct_insert_record(row, header)
@@ -232,29 +227,42 @@ class AnomalyDetector < BaseConfig
     # super()
     self.db = DBConfig.new()
     self.target = TargetTable.new(table_name)
-    
     self.time_range = time_range
     self.time_range_sql = time_range
 
-
   end
-
-
 
   def between_time_frame_condition(table)
     ["created_at","updated_at"]
         .collect{|f| " (#{table}.#{f} > #{time_range_sql[0]} and #{table}.#{f} < #{time_range_sql[1]}) "  }
-          .join(" or ")
+        .join(" or ")
+  end
+
+  def source_query_partial()
+    target.query_params[:from_and_join]+ " " +
+        (target.query_params[:conditions] == "" ? "" : " where ") + target.query_params[:conditions]+ " " +
+        " and " + target.query_params[:tables].collect{|c| " (#{between_time_frame_condition(c)}) " }.join(" and ") + " " +
+        target.query_params[:additional]
+  end
+
+  def get_source_count()
+    q= " select count(*) " + source_query_partial
+    puts q
+    q
+
+
+  end
+  def get_target_count()
+    q="select count(*) from #{target.name} where #{between_time_frame_condition(target.name)}"
+    puts q
+    q
   end
 
 
-  def batch_source_fetch_query()
-    q=  " select " + target.query_params[:select]+ " " +
-        target.query_params[:from_and_join]+ " " +
-        (target.query_params[:where] == "" ? "" : " where ") + target.query_params[:where]+ " " +
-        " and " + target.query_params[:tables].collect{|c| " (#{between_time_frame_condition(c)}) " }.join(" and ") + " " +
-        target.query_params[:additional]
 
+
+  def batch_source_fetch_query()
+    q=  " select " + target.filtered_source_fields,join(",")+ " " + source_query_partial
     puts q
     q
   end
@@ -265,19 +273,48 @@ class AnomalyDetector < BaseConfig
     q
   end
 
-  def batch_source_validate_query(records)a
-    "select"
+  def batch_source_validate_query(row )
+    "select count(*) from #{table} where "
     puts q
     q
   end
 
   def batch_target_validate_query(records)
+    "select count(*) from #{table} where "
     puts q
     q
   end
 
-  def run_ad(table_name)
 
+  def run_ad()
+    # result = client.query("SELECT * FROM really_big_Table", :stream => true)
+    while true
+      results = db.client.query(batch_source_fetch_query)
+      records=[]
+      header = results.fields
+      results.each do |row|
+        records << construct_insert_record(row, header)
+      end
+
+
+
+      # puts completed_count+results.size
+      self.completed_count = self.completed_count+results.size.to_i
+      # completed_count=f
+      if results.size <= 0
+        break
+      else
+        inserted = db.client.query(batch_insert_query(records))
+      end
+
+    end
+
+    return  validate_success
+  end
+
+  def validate_success
+    # for post ad validation logic
+    :success
   end
 end
 
@@ -308,6 +345,8 @@ class TaskManager
 
   end
 
+  
+  
   def migrate(table_arr)
     table_arr.each do |table|
      task = Migration.new(table).migrate
