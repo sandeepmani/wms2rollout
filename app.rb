@@ -221,7 +221,7 @@ end
 
 
 class AnomalyDetector < BaseConfig
-  attr_accessor :time_range,:target, :db ,:time_range_sql
+  attr_accessor :time_range,:target, :db ,:time_range_sql,:anomaly
 
   def initialize(target_table,time_range)
     # super()
@@ -229,6 +229,7 @@ class AnomalyDetector < BaseConfig
     self.target = TargetTable.new(table_name)
     self.time_range = time_range
     self.time_range_sql = time_range
+    self.anomaly = ""
 
   end
 
@@ -323,40 +324,76 @@ end
 
 
 class TaskManager
+  
   attr_accessor :tables ,:table_states, :task_completed ,:task_type
   def initialize()
+    self.table_state_fields = [:state,:time]
     self.table_states = read_file(table_status)
+    self.activity_log = ""
     (BaseConfig::MIGRATION_RULES.keys - table_states.keys).each do |table|
       self.table_states[table] = ["not migrated", nil]
     end
     write_file(table_status)
-    # self.task_type = task_type
-
-
-  end
-
-
-
-  def self.read_file()
-
-  end
-
-  def self.write_file()
-
+    self.task_types = []
   end
 
   
+
+  # for file interactions
+  def self.read_file(file)
+
+  end
+
+  def self.write_file(file)
+
+  end
+
+  def update_file(file)
+
+  end
+
+
   
+  
+  
+  # for event helper
+  def update_table_state(table,change)
+    self.table_states[table] = ["migrated" , Time.now]
+    write_file(table_status)
+  end
+
+  def add_activity(start,type,task,params,result=nil)
+
+  end
+
+  def add_error(table,anomaly)
+
+  end
+
+
+
+  # event_listener
+  def trigger_event(start,type,task,params,result=nil)
+
+  end
+
+
+
+
+  
+
+  # expossed tasks
   def migrate(table_arr)
+    trigger_event(:start,:process,:migrate,table_arr,nil)
     table_arr.each do |table|
-     task = Migration.new(table).migrate
-     if task != :success
+      trigger_event(:start,:task,:migration,table,nil)
+      result = Migration.new(table).migrate
+      if result != :success
        break
-     else
-       self.table_states[table] = ["migrated" , Time.now]
+      else
      end
     end
-    write_file(table_status)
+    trigger_event(:end,:process,:migrate,table_arr,nil)
   end
 
 
@@ -365,7 +402,7 @@ class TaskManager
 
   end
 
-  def run_anomaly_detector_for(table_name)
+  def run_anomaly_detector_for(table_name,start_time,duration)
 
     task = AnomalyDetector.new(table).migrate
     self.table_states[table_name] = ["migrated" , Time.now]
