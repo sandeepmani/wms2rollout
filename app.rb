@@ -204,12 +204,12 @@ class Migration
 
     end
 
-    return  validate_success
+    validate_success
   end
 
   def validate_success
     # for post migration validation logic
-    :success
+    {:status=>:success,:data=>""}
   end
 
 end
@@ -313,7 +313,7 @@ class AnomalyDetector < BaseConfig
 
   def validate_success
     # for post ad validation logic
-    {:result=>:success,:data=>"count"}
+    {:status=>:success,:data=>""}
   end
 end
 
@@ -339,6 +339,7 @@ class TaskManager
     self.process_types = []
   end
 
+
   # run  #####################################################
   def execute
     build_task_queue
@@ -348,17 +349,20 @@ class TaskManager
   end
 
   def build_task_queue()
-    self.send(self.task_type,*(self.args) )# build_task_queue
+    self.send(self.task_type,*(self.args)) # build_task_queue
   end
   #run tasks (task queues))
   def run_tasks()
     self.task_queue.each do |task|
+
       self.task_list << task
       trigger_event(:start,:task)
+
       result = self.send()
       if result[:status] == :failed
         break
       end
+
       self.task_list.last[:result]=result
       trigger_event(:end,:task)
     end
@@ -367,7 +371,7 @@ class TaskManager
 
 
 
-  # Expossed Process handlers ################################################
+  # Expossed Process handlers (task queue builders)################################################
   def migrate(table_arr)
     table_arr.each do |table_name|
       self.task_queue << {:type=>:migrate_table,:args=>[table_name]}
@@ -392,7 +396,7 @@ class TaskManager
   def run_anomaly_detector_for(table_name,start_time=nil,duration=nil)
     start_time = get_start_time(table_name) if start_time.nil?
     duration = BaseConfig::DEFAULT_DURATION if duration.nil?
-    run_ad_recursively(table_name,start_time,duration)
+    build_ad_queue_recursively(table_name,start_time,duration)
   end
 
   def resume_anomaly_detector()
