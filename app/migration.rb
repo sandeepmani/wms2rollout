@@ -1,5 +1,5 @@
 class Migration
-  attr_accessor  :target, :current_batch, :completed_count, :limit,:total_count,:db,:qquery
+  attr_accessor  :target, :current_batch, :completed_count, :limit,:total_count,:db,:insert_fields
 
   def initialize(table_name)
     # super()
@@ -9,14 +9,14 @@ class Migration
     self.completed_count=0
     self.limit=ConfigRules::DEFAULT_BATCH_SIZE
     self.total_count=0
-    self.insert_fields =  (target.rule[:map].keys-target.filtered_target_fields).each do |f|
-      target.filtered_target_fields << f if target.rule[:map][f] != :auto_increament
+    self.insert_fields =target.filtered_target_fields +  (target.rule[:map].keys-target.filtered_target_fields).select do |f|
+       target.rule[:map][f] != :auto_increament
     end
   end
 
 
   def batch_fetch_query()
-    q=  " select " + target.filtered_source_fields,join(",")+ " " +
+    q=  " select " + target.filtered_source_fields.join(",")+ " " +
         target.query_params[:from_and_join] + " " +
         (target.query_params[:conditions] == "" ? "" : " where ") + target.query_params[:conditions]+ " " +
         target.query_params[:additional]+ " " +

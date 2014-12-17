@@ -18,7 +18,7 @@ class AnomalyDetector
   end
 
   def build_where_conition(fields,values)
-    " " + (0..fields-1).collect do |index|
+    " " + (0..fields.size-1).collect do |index|
       "#{fields[index]} = #{values[index]}"
     end.join(" and ") + " "
   end

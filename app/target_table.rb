@@ -33,16 +33,16 @@ class TargetTable
   # end
 
   def construct_target_record(row)
-    (0..target.filtered_target_fields-1).collect do |index|
-      field = target.filtered_target_fields[index]
+    record=(0..filtered_target_fields.size-1).collect do |index|
+      field = filtered_target_fields[index]
       value = row[index]
       (filtered_map[field].class.name == "Array" ?  filtered_map[field][1].call(value) : value)
     end
     embed_string_in_quotes(record)
   end
   def construct_source_record(row)
-    record=(0..target.filtered_target_fields-1).collect do |index|
-      field = target.filtered_target_fields[index]
+    record=(0..filtered_target_fields.size-1).collect do |index|
+      field = filtered_target_fields[index]
       value = row[index]
       (filtered_map[field].class.name == "Array" ?  filtered_map[field][2].call(value) : value)
     end

@@ -1,6 +1,6 @@
 class TaskManager
 
-  attr_accessor :tables ,:table_status ,:process_type,:task_list,:task_queue,:args,:table_state_fields
+  attr_accessor  :table_status ,:process_type,:task_list,:task_queue,:args,:table_state_fields,:activity_log
   def initialize(process_type,*args)
     self.args = args
     self.process_type = process_type
@@ -9,8 +9,11 @@ class TaskManager
     self.table_status = self.read_file(table_status)
     self.activity_log = ""
 
-    (ConfigRules::MIGRATION_RULES.keys - table_states.keys).each do |table|
-      self.table_states[table] = ["not migrated", nil]
+    self.task_queue = []
+    self.task_list = []
+
+    (ConfigRules::MIGRATION_RULES.keys - table_status.keys).each do |table|
+      self.table_status[table] = ["not migrated", nil]
     end
     write_file(table_status)
 
@@ -18,7 +21,7 @@ class TaskManager
 
 
   # run  #####################################################
-  def execute
+  def run
     build_task_queue
     trigger_event(:start,:process)
     run_tasks
@@ -26,7 +29,7 @@ class TaskManager
   end
 
   def build_task_queue()
-    self.send(self.task_type,*(self.args)) # build_task_queue
+    self.send(self.process_type,*(self.args)) # build_task_queue
   end
   #run tasks (task queues))
   def run_tasks()
@@ -35,7 +38,7 @@ class TaskManager
       self.task_list << task
       trigger_event(:start,:task)
 
-      result = self.send()
+      result = self.send(task[:name],*(task[:args]))
       if result[:status] == :failed
         break
       end
@@ -51,21 +54,21 @@ class TaskManager
   # Expossed Process handlers (task queue builders)################################################
   def migrate(table_arr)
     table_arr.each do |table_name|
-      self.task_queue << {:type=>:migrate_table,:args=>[table_name]}
+      self.task_queue << {:name=>:migrate_table,:args=>[table_name]}
     end
   end
 
 
   def remigrate(table_arr)
     table_arr.each do |table_name|
-      self.task_queue << {:type=>:truncate_table,:args=>[table_name]}
-      self.task_queue << {:type=>:migrate_table,:args=>[table_name]}
+      self.task_queue << {:name=>:truncate_table,:args=>[table_name]}
+      self.task_queue << {:name=>:migrate_table,:args=>[table_name]}
     end
   end
 
   def truncate_tables(table_arr)
     table_arr.each do |table_name|
-      self.task_queue << {:type=>:truncate_table,:args=>[table_name]}
+      self.task_queue << {:name=>:truncate_table,:args=>[table_name]}
     end
 
   end
@@ -108,7 +111,7 @@ class TaskManager
   def build_ad_queue_recursively(table_name,start_time,duration)
     ad = AnomalyDetector.new(table_name,[start_time,start_time+duration])
     if ad.get_source_count < ConfigRules::DEFAULT_BATCH_SIZE
-      self.task_queue << {:type=>:run_ad_for_table,:args=>[table_name,[start_time,start_time+duration]]}
+      self.task_queue << {:name=>:run_ad_for_table,:args=>[table_name,[start_time,start_time+duration]]}
     else
       duration_split_1 = (duration/2.0 == (duration/2).to_f) ? duration/2 : duration/2 + 1
       duration_split_2 = duration/2
@@ -159,10 +162,11 @@ class TaskManager
 
   # for file interactions #################################
   def read_file(file)
+    {}
     #todo
   end
 
-  def self.write_file(file)
+  def write_file(file)
     #todo
 
   end
