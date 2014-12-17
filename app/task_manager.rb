@@ -1,13 +1,14 @@
 class TaskManager
 
-  attr_accessor  :table_status ,:process_type,:task_list,:task_queue,:args,:table_state_fields,:activity_log
-  def initialize(process_type,*args)
+  attr_accessor  :table_status ,:process_name,:task_list,:task_queue,:args,:table_state_fields,:activity_log,:anomoly
+  def initialize(process_name,*args)
     self.args = args
-    self.process_type = process_type
-    # self.process_types = []
+    self.process_name = process_name
+    # self.process_names = []
     # self.table_status_fields = [:state,:sucsess_time_stamp]
-    self.table_status = self.read_file(table_status)
-    self.activity_log = ""
+    self.table_status = self.read_data("table_status")
+    # self.activity_log = []
+    # self.anomoly = []
 
     self.task_queue = []
     self.task_list = []
@@ -29,7 +30,7 @@ class TaskManager
   end
 
   def build_task_queue()
-    self.send(self.process_type,*(self.args)) # build_task_queue
+    self.send(self.process_name,*(self.args)) # build_task_queue
   end
   #run tasks (task queues))
   def run_tasks()
@@ -42,6 +43,7 @@ class TaskManager
       if result[:status] == :failed
         break
       end
+
 
       self.task_list.last[:result]=result
       trigger_event(:end,:task)
@@ -95,7 +97,8 @@ class TaskManager
   end
 
   def truncate_table(table)
-    "truuncate table #{table}"
+    "truncate table #{table}"
+    {:status=>:success,:data=>""}
   end
 
   def run_ad_for_table(target_table,time_range)
@@ -134,21 +137,49 @@ class TaskManager
   # for event helper ###################################
   def update_table_state(table,change)
     self.table_states[table] = ["migrated" , Time.now]
-    write_file(table_status)
+    write_data("table_status",table_status)
   end
 
-  def add_activity(start,type,task,params,result=nil)
-    #todo
-
+  def add_activity(*args)
+    append_data(activity_log,args.join(" : "))
   end
 
-  def add_error(table,anomaly)
-    #todo
-
+  def add_error(*args)
+    append_data(anomaly,args.to_json
   end
   # event_listener
-  def trigger_event(event_type,process_type)
-    #todo
+  def trigger_event(event,cat)
+    # [start,type,task  ,params, result=nil ,timestamp,duration]
+
+    activity = []
+    activity << "#{event.to_s} #{cat.to_s} #{}"
+    activity <<  cat == :process ? self.process_name.to_s : self.task_list.last[:name].to_s
+    activity << "at #{Time.now}"
+
+
+    if event == :start
+      activity <<  cat == :process ? self.process_name.args : self.task_list.last[:args].to_s
+    else
+      activity <<  cat == :process ? "sucess" : self.task_list.last[:result].to_s
+      activity << "Time Taken 5 mins"
+      update_table_state()
+    end
+
+    if event == :end && self.task_list.last[:result] == :success_with_anomaly
+      add_error()
+    end
+    
+    add_activity(activity)
+    
+    
+    #process
+    if ssss == :process
+      if event == :start
+        
+      else
+
+      end
+    end
 
   end
   ####################################################
@@ -161,19 +192,20 @@ class TaskManager
 
 
   # for file interactions #################################
-  def read_file(file)
-    {}
-    #todo
+  def read_data(file)
+    JSON.parse(File.read("./data_files/#{file}.json"))
   end
 
-  def write_file(file)
-    #todo
-
+  def write_data(file,content)
+    File.open("./data_files/#{file}.json", 'w') do |f|
+      puts content
+    end
   end
 
-  def update_file(file)
-    #todo
-
+  def append_data(file_name,content)
+    File.open("./data_files/#{file_name}.json", 'a') do |f|
+      puts content
+    end
   end
   #########################################################
 
