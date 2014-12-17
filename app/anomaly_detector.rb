@@ -17,38 +17,63 @@ class AnomalyDetector
         .join(" or ")
   end
 
+  def build_where_conition(fields,values)
+    " " + (0..fields-1).collect do |index|
+      "#{fields[index]} = #{values[index]}"
+    end.join(" and ") + " "
+  end
+
+
+
+
+  # for source to target validation ###########################
   def source_query_partial()
-    target.query_params[:from_and_join]+ " " +
+        "from (" +
+
+        " select " + target.filtered_source_fields.join(",") +
+        target.query_params[:from_and_join]+ " " +
         (target.query_params[:conditions] == "" ? "" : " where ") + target.query_params[:conditions]+ " " +
         " and " + target.query_params[:tables].collect{|c| " (#{between_time_frame_condition(c)}) " }.join(" and ") + " " +
-        target.query_params[:additional]
+        target.query_params[:additional] +
+
+        ")" +
+        "group by (#{target.filtered_source_fields.join(',')})"
   end
+
 
   def get_source_count()
     q= " select count(*) " + source_query_partial
     puts q
     q
-
-
   end
-  def get_target_count()
-    q="select count(*) from #{target.name} where #{between_time_frame_condition(target.name)}"
-    puts q
-    q
-  end
-
-
-
 
   def batch_source_fetch_query()
-    q=  " select " + target.filtered_source_fields,join(",")+ " " + source_query_partial
+    q=  " select " + target.filtered_source_fields.join(",")+ " , COUNT(*)  " + source_query_partial
     puts q
     q
     #todo
   end
+  def batch_target_validate_query(records)
+    "select * from " +
+        "(set @num := 0 "+
+        records.collect{|row| "(select #{target.filtered_target_fields.join(",")} ,  count(*) as actual_count ,@num := #{row.last} as validation_count from #{target.name} where
+          #{build_where_conition(target.filtered_target_fields,target.construct_target_record(row[0..target.filtered_target_fields-1]))}) " }.join(" UNION ALL ")   +
 
+        ") where validation_count > actual_count"
+    puts q
+    q
+
+  end
+
+
+  # for target to source validation #####################################
+  def get_target_count()
+    q="select count(*) " + "from #{target.name} where #{between_time_frame_condition(target.name)}" + "group by (#{target.filtered_target_fields.join(',')})"
+    puts q
+    q
+  end
   def batch_target_fetch_query()
-    q="select #{filtered_target_fields.join(" , ")} from #{target.name} where #{between_time_frame_condition(target.name)}"
+    q="select #{filtered_target_fields.join(" , ")} , count(*)" + "from #{target.name} where #{between_time_frame_condition(target.name)}" + "group by (#{target.filtered_target_fields.join(',')})"
     puts q
     q
     #todo
@@ -57,18 +82,25 @@ class AnomalyDetector
 
 
   def batch_source_validate_query(records)
-    "select count(*) from #{table} where "
+        "select * from " +
+        "(set @num := 0 "+
+        records.collect{|row|
+
+          "(select #{target.filtered_source_fields.join(",")} ,  count(*) as actual_count ,@num := #{row.last} as validation_count "+
+            target.query_params[:from_and_join]+ " " +
+            "where"+ target.query_params[:conditions]+ " and " +
+            " #{build_where_conition(target.filtered_source_fields,target.construct_source_record(row[0..target.filtered_source_fields-1]))}) " +
+          target.query_params[:additional]
+
+        }.join(" UNION ALL ")   +
+
+        ") where validation_count > actual_count"
+
     puts q
     q
-    #todo
+
   end
 
-  def batch_target_validate_query(records)
-    "select count(*) from #{table} where "
-    puts q
-    q
-    #todo
-  end
 
 
   def run_ad()
@@ -85,7 +117,7 @@ class AnomalyDetector
       anomaly[:target] = results.collect{|r| r}
     end
 
-    return  validate_success
+    validate_success
   end
 
   def validate_success

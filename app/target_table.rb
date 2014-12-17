@@ -21,17 +21,32 @@ class TargetTable
 
   # warehouse_b2b_development
 
+  ### do not remove
+  # def construct_target_record(row, header)
+  #   record = []
+  #   filtered_target_fields.each do |field|
+  #     source_field = filtered_map[field].class.name == "Array" ?  filtered_map[field][0] : filtered_map[field]
+  #     value = row[header.index(source_field)]
+  #     record << (filtered_map[field].class.name == "Array" ?  filtered_map[field][1].call(value) : value)
+  #   end
+  #   embed_string_in_quotes(record)
+  # end
 
-  def construct_target_record(row, header)
-    record = []
-    filtered_target_fields.each do |field|
-      source_field = filtered_map[field].class.name == "Array" ?  filtered_map[field][0] : filtered_map[field]
-      value = row[header.index(source_field)]
-      record << (filtered_map[field].class.name == "Array" ?  filtered_map[field][1].call(value) : value)
+  def construct_target_record(row)
+    (0..target.filtered_target_fields-1).collect do |index|
+      field = target.filtered_target_fields[index]
+      value = row[index]
+      (filtered_map[field].class.name == "Array" ?  filtered_map[field][1].call(value) : value)
     end
     embed_string_in_quotes(record)
   end
-  def construct_source_record(row, header)
+  def construct_source_record(row)
+    record=(0..target.filtered_target_fields-1).collect do |index|
+      field = target.filtered_target_fields[index]
+      value = row[index]
+      (filtered_map[field].class.name == "Array" ?  filtered_map[field][2].call(value) : value)
+    end
+    embed_string_in_quotes(record)
   end
 
 end

@@ -35,8 +35,7 @@ class Migration
   end
 
   def construct_insert_record(row, header)
-    record = target.construct_target_record(row, header)
-
+    record = target.construct_target_record(row)
     (target.rule[:map].keys-target.filtered_target_fields).each do |f|
       record << "Now()" if target.rule[:map][f] != :auto_increament
     end
