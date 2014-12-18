@@ -1,4 +1,5 @@
 class TaskManager
+  require "json"
 
   attr_accessor  :table_status ,:process_name,:task_list,:task_queue,:args,:table_state_fields,:activity_log,:anomoly
   def initialize(process_name,*args)
@@ -16,7 +17,7 @@ class TaskManager
     (ConfigRules::MIGRATION_RULES.keys - table_status.keys).each do |table|
       self.table_status[table] = ["not migrated", nil]
     end
-    write_file(table_status)
+    write_data("table_status",table_status.to_json)
 
   end
 
@@ -145,7 +146,7 @@ class TaskManager
   end
 
   def add_error(*args)
-    append_data(anomaly,args.to_json
+    append_data(anomaly,args.to_json)
   end
   # event_listener
   def trigger_event(event,cat)
@@ -153,33 +154,35 @@ class TaskManager
 
     activity = []
     activity << "#{event.to_s} #{cat.to_s} #{}"
-    activity <<  cat == :process ? self.process_name.to_s : self.task_list.last[:name].to_s
+    puts activity
+    activity <<  (cat == :process ? self.process_name.to_s : self.task_list.last[:name].to_s)
     activity << "at #{Time.now}"
 
 
     if event == :start
-      activity <<  cat == :process ? self.process_name.args : self.task_list.last[:args].to_s
+      activity <<  (cat == :process ? self.args.to_s : self.task_list.last[:args].to_s)
     else
-      activity <<  cat == :process ? "sucess" : self.task_list.last[:result].to_s
-      activity << "Time Taken 5 mins"
-      update_table_state()
+      activity <<  (cat == :process ? "sucess" : self.task_list.last[:result].to_s)
+      activity << "Time Taken .. mins"
+      # update_table_state()
+      # #todo
     end
 
-    if event == :end && self.task_list.last[:result] == :success_with_anomaly
-      add_error()
+    if event == :end && self.task_list.last[:result][:status] == :success_with_anomaly
+      add_error(task_list.last[:result][:status])
     end
     
     add_activity(activity)
     
     
-    #process
-    if ssss == :process
-      if event == :start
-        
-      else
-
-      end
-    end
+    #extra activity log for task builder
+    # if cat == :process
+    #   if event == :start
+    #
+    #   else
+    #
+    #   end
+    # end
 
   end
   ####################################################
@@ -198,13 +201,13 @@ class TaskManager
 
   def write_data(file,content)
     File.open("./data_files/#{file}.json", 'w') do |f|
-      puts content
+      f.puts content
     end
   end
 
   def append_data(file_name,content)
     File.open("./data_files/#{file_name}.json", 'a') do |f|
-      puts content
+      f.puts content
     end
   end
   #########################################################
