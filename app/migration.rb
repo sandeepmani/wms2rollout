@@ -62,7 +62,9 @@ class Migration
       if results.size <= 0
         break
       else
+
         inserted = db.client.query(batch_insert_query(records))
+        # puts inserted
         self.completed_count = self.completed_count+results.size.to_i
       end
 

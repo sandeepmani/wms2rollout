@@ -10,12 +10,13 @@ end
 
 =begin
 
-CREATE TABLE product_master (
+CREATE TABLE product_master (id int NOT NULL AUTO_INCREMENT,
                                  fsn varchar(255),
                                      sku varchar(255),
                                          status varchar(255),
                                                 created_at timestamp,
-                                                           updated_at timestamp);
+                                                           updated_at timestamp,
+PRIMARY KEY (ID));
 
 CREATE TABLE inventory_defining_attributes (
                                                 product_master_id varchar(255),

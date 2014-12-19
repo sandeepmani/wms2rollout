@@ -1,11 +1,4 @@
-start process  : migrate : at 2014-12-19 12:21:53 +0530 : [[:product_master, :inventory_defining_attributes]]
-start task  : migrate_table : at 2014-12-19 12:21:53 +0530 : [:product_master]
-end task  : migrate_table : at 2014-12-19 12:21:53 +0530 : {:status=>:success, :data=>""} : Time Taken .. mins
-start task  : migrate_table : at 2014-12-19 12:21:53 +0530 : [:inventory_defining_attributes]
-start process  : migrate : at 2014-12-19 12:28:37 +0530 : [[:product_master, :inventory_defining_attributes]]
-start task  : migrate_table : at 2014-12-19 12:28:37 +0530 : [:product_master]
-end task  : migrate_table : at 2014-12-19 12:28:37 +0530 : {:status=>:success, :data=>""} : Time Taken .. mins
-start task  : migrate_table : at 2014-12-19 12:28:37 +0530 : [:inventory_defining_attributes]
+
 start process  : migrate : [[:product_master, :inventory_defining_attributes]] : at 2014-12-19 13:11:07 +0530
 start task  : migrate_table : [:product_master] : at 2014-12-19 13:11:07 +0530
 end task  : migrate_table : {:status=>:success, :data=>""} : at 2014-12-19 13:11:07 +0530
@@ -49,3 +42,33 @@ start process  : migrate : [[:product_master, :inventory_defining_attributes]] :
 start task  : migrate_table : [:product_master] : at 2014-12-19 13:22:04 +0530
 end task  : migrate_table : {:status=>:success, :data=>""} : at 2014-12-19 13:22:04 +0530
 start task  : migrate_table : [:inventory_defining_attributes] : at 2014-12-19 13:22:04 +0530
+start process  : migrate : [[:product_master, :inventory_defining_attributes]] : at 2014-12-19 13:32:01 +0530
+start task  : migrate_table : [:product_master] : at 2014-12-19 13:32:01 +0530
+end task  : migrate_table : {:status=>:success, :data=>""} : at 2014-12-19 13:32:01 +0530
+start task  : migrate_table : [:inventory_defining_attributes] : at 2014-12-19 13:32:01 +0530
+start process  : migrate : [[:product_master, :inventory_defining_attributes]] : at 2014-12-19 13:32:37 +0530
+start task  : migrate_table : [:product_master] : at 2014-12-19 13:32:37 +0530
+end task  : migrate_table : {:status=>:success, :data=>""} : at 2014-12-19 13:32:37 +0530
+start task  : migrate_table : [:inventory_defining_attributes] : at 2014-12-19 13:32:37 +0530
+start process  : migrate : [[:product_master, :inventory_defining_attributes]] : at 2014-12-19 13:33:05 +0530
+start task  : migrate_table : [:product_master] : at 2014-12-19 13:33:05 +0530
+end task  : migrate_table : {:status=>:success, :data=>""} : at 2014-12-19 13:33:05 +0530
+start task  : migrate_table : [:inventory_defining_attributes] : at 2014-12-19 13:33:05 +0530
+start process  : migrate : [[:product_master, :inventory_defining_attributes]] : at 2014-12-19 13:33:20 +0530
+start task  : migrate_table : [:product_master] : at 2014-12-19 13:33:20 +0530
+start process  : migrate : [[:product_master, :inventory_defining_attributes]] : at 2014-12-19 13:34:23 +0530
+start task  : migrate_table : [:product_master] : at 2014-12-19 13:34:23 +0530
+start process  : migrate : [[:product_master, :inventory_defining_attributes]] : at 2014-12-19 13:37:07 +0530
+start task  : migrate_table : [:product_master] : at 2014-12-19 13:37:07 +0530
+start process  : migrate : [[:product_master, :inventory_defining_attributes]] : at 2014-12-19 13:49:22 +0530
+start task  : migrate_table : [:product_master] : at 2014-12-19 13:49:22 +0530
+end task  : migrate_table : {:status=>:success, :data=>""} : at 2014-12-19 13:49:23 +0530
+start task  : migrate_table : [:inventory_defining_attributes] : at 2014-12-19 13:49:23 +0530
+end task  : migrate_table : {:status=>:success, :data=>""} : at 2014-12-19 13:49:23 +0530
+end process  : migrate : sucess : at 2014-12-19 13:49:23 +0530
+start process  : migrate : [[:product_master, :inventory_defining_attributes]] : at 2014-12-19 13:59:02 +0530
+start task  : migrate_table : [:product_master] : at 2014-12-19 13:59:02 +0530
+start process  : migrate : [[:product_master, :inventory_defining_attributes]] : at 2014-12-19 14:00:08 +0530
+start task  : migrate_table : [:product_master] : at 2014-12-19 14:00:08 +0530
+start process  : migrate : [[:product_master, :inventory_defining_attributes]] : at 2014-12-19 14:01:20 +0530
+start task  : migrate_table : [:product_master] : at 2014-12-19 14:01:20 +0530

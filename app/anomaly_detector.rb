@@ -33,7 +33,7 @@ class AnomalyDetector
         " select " + target.filtered_source_fields.join(",") +
         target.query_params[:from_and_join]+ " " +
         (target.query_params[:conditions] == "" ? "" : " where ") + target.query_params[:conditions]+ " " +
-        " and " + target.query_params[:tables].collect{|c| " (#{between_time_frame_condition(c)}) " }.join(" and ") + " " +
+        " and " + target.query_params[:check_timestamp_for].collect{|c| " (#{between_time_frame_condition(c)}) " }.join(" and ") + " " +
         target.query_params[:additional] +
 
         ")" +
