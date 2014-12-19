@@ -52,4 +52,9 @@ class TargetTable
     embed_string_in_quotes(record)
   end
 
+  def truncate
+    db.client.query("truncate table #{name}")
+    {:status=>:success,:data=>""}
+  end
+
 end

@@ -99,8 +99,7 @@ class TaskManager
   end
 
   def truncate_table(table)
-    "truncate table #{table}"
-    {:status=>:success,:data=>""}
+    TargetTable.new(table).truncate
   end
 
   def run_ad_for_table(target_table,time_range)

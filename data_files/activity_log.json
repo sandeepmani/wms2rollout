@@ -128,3 +128,29 @@ end task  : migrate_table : {:status=>:success, :data=>""} : at 2014-12-19 14:19
 start task  : migrate_table : [:inventory_defining_attributes] : at 2014-12-19 14:19:22 +0530
 end task  : migrate_table : {:status=>:success, :data=>""} : at 2014-12-19 14:20:05 +0530
 end process  : migrate : sucess : at 2014-12-19 14:20:05 +0530
+start process  : truncate : [[:product_master, :inventory_defining_attributes]] : at 2014-12-19 14:27:23 +0530
+start task  : truncate_table : [:product_master] : at 2014-12-19 14:27:23 +0530
+end task  : truncate_table : {:status=>:success, :data=>""} : at 2014-12-19 14:27:23 +0530
+start task  : truncate_table : [:inventory_defining_attributes] : at 2014-12-19 14:27:23 +0530
+end task  : truncate_table : {:status=>:success, :data=>""} : at 2014-12-19 14:27:23 +0530
+end process  : truncate : sucess : at 2014-12-19 14:27:23 +0530
+start process  : truncate : [[:product_master, :inventory_defining_attributes]] : at 2014-12-19 14:29:22 +0530
+start task  : truncate_table : [:product_master] : at 2014-12-19 14:29:22 +0530
+end task  : truncate_table : {:status=>:success, :data=>""} : at 2014-12-19 14:29:23 +0530
+start task  : truncate_table : [:inventory_defining_attributes] : at 2014-12-19 14:29:23 +0530
+end task  : truncate_table : {:status=>:success, :data=>""} : at 2014-12-19 14:29:23 +0530
+end process  : truncate : sucess : at 2014-12-19 14:29:23 +0530
+start process  : migrate : [[:product_master, :inventory_defining_attributes]] : at 2014-12-19 14:29:46 +0530
+start task  : migrate_table : [:product_master] : at 2014-12-19 14:29:46 +0530
+end task  : migrate_table : {:status=>:success, :data=>""} : at 2014-12-19 14:29:47 +0530
+start task  : migrate_table : [:inventory_defining_attributes] : at 2014-12-19 14:29:47 +0530
+end task  : migrate_table : {:status=>:success, :data=>""} : at 2014-12-19 14:29:49 +0530
+end process  : migrate : sucess : at 2014-12-19 14:29:49 +0530
+start process  : truncate : [[:product_master, :inventory_defining_attributes]] : at 2014-12-19 14:42:17 +0530
+start task  : truncate_table : [:product_master] : at 2014-12-19 14:42:17 +0530
+start process  : truncate : [[:product_master, :inventory_defining_attributes]] : at 2014-12-19 14:42:31 +0530
+start task  : truncate_table : [:product_master] : at 2014-12-19 14:42:31 +0530
+end task  : truncate_table : {:status=>:success, :data=>""} : at 2014-12-19 14:42:31 +0530
+start task  : truncate_table : [:inventory_defining_attributes] : at 2014-12-19 14:42:31 +0530
+end task  : truncate_table : {:status=>:success, :data=>""} : at 2014-12-19 14:42:31 +0530
+end process  : truncate : sucess : at 2014-12-19 14:42:31 +0530
