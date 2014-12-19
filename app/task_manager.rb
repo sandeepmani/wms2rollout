@@ -15,7 +15,8 @@ class TaskManager
     self.task_list = []
 
     (ConfigRules::MIGRATION_RULES.keys - table_status.keys).each do |table|
-      self.table_status[table] = ["not migrated", nil]
+      self.table_status[table] = {}
+      self.table_status[table][:migration] = ["not_migrated", nil]
     end
     write_data("table_status",table_status.to_json)
 
@@ -83,7 +84,7 @@ class TaskManager
   end
 
   def resume_anomaly_detector()
-
+    #todo - will do later if required
   end
   ###################################################################################
 
@@ -125,7 +126,8 @@ class TaskManager
   end
 
   def get_start_time(table_name)
-
+    #gives time when table migration completed
+    Time.new(table_status[table_name][:migration][1])
   end
   #########################################################################
 
@@ -136,43 +138,58 @@ class TaskManager
 
 
   # for event helper ###################################
-  def update_table_state(table,change)
-    self.table_states[table] = ["migrated" , Time.now]
-    write_data("table_status",table_status)
-  end
+
+  # def update_table_state(table,change)
+  #   self.table_states[table] = ["migrated" , Time.now]
+  #   write_data("table_status",table_status.to_json)
+  # end
 
   def add_activity(*args)
-    append_data(activity_log,args.join(" : "))
+    append_data("activity_log",args.join(" : "))
   end
 
   def add_error(*args)
-    append_data(anomaly,args.to_json)
+    append_data("anomaly",args.to_json)
   end
   # event_listener
   def trigger_event(event,cat)
     # [start,type,task  ,params, result=nil ,timestamp,duration]
 
+    # for adding activity
     activity = []
     activity << "#{event.to_s} #{cat.to_s} #{}"
-    puts activity
     activity <<  (cat == :process ? self.process_name.to_s : self.task_list.last[:name].to_s)
-    activity << "at #{Time.now}"
-
-
     if event == :start
       activity <<  (cat == :process ? self.args.to_s : self.task_list.last[:args].to_s)
     else
       activity <<  (cat == :process ? "sucess" : self.task_list.last[:result].to_s)
-      activity << "Time Taken .. mins"
-      # update_table_state()
-      # #todo
+      # activity << "Time Taken .. mins"
     end
 
-    if event == :end && self.task_list.last[:result][:status] == :success_with_anomaly
-      add_error(task_list.last[:result][:status])
+    activity << "at #{Time.now}"
+    add_activity(activity)
+    #############################################################
+
+
+
+    ####  table states and anomaly ############################################################
+    if event == :end
+
+        if task_list.last[:result][:status] == :success_with_anomaly
+          add_error(task_list.last[:result][:status])
+        end
+        if task_list.last[:name] == :migrate_table
+          puts table_status
+          table_status[task_list.last[:args][0]][:migration] = [task_list.last[:result][:status] , Time.now]
+        end
+
+
+
+        write_data("table_status",table_status.to_json)
     end
     
-    add_activity(activity)
+
+    ##########################################################
     
     
     #extra activity log for task builder
@@ -196,7 +213,7 @@ class TaskManager
 
   # for file interactions #################################
   def read_data(file)
-    JSON.parse(File.read("./data_files/#{file}.json"))
+    JSON.parse(File.read("./data_files/#{file}.json"),:symbolize_names => true)
   end
 
   def write_data(file,content)
@@ -205,8 +222,8 @@ class TaskManager
     end
   end
 
-  def append_data(file_name,content)
-    File.open("./data_files/#{file_name}.json", 'a') do |f|
+  def append_data(file,content)
+    File.open("./data_files/#{file}.json", 'a') do |f|
       f.puts content
     end
   end
