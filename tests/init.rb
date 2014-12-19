@@ -8,6 +8,7 @@ ConfigRules::MIGRATION_RULES.each do |key,value|
 end
 
 
+
 =begin
 
 CREATE TABLE product_master (id int NOT NULL AUTO_INCREMENT,

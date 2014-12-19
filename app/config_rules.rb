@@ -36,7 +36,7 @@ class ConfigRules
 
       :inventory_defining_attributes => {
           :query_params => {
-              :from_and_join => "from product_details   inner join product_master product_details on product_master.fsn = product_details.fsn and product_master.sku = product_details.sku",
+              :from_and_join => "from product_details   inner join product_master  on product_master.fsn = product_details.fsn and product_master.sku = product_details.sku",
               :conditions  => "",
               :additional =>"",
 

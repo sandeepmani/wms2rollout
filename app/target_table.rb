@@ -1,5 +1,5 @@
 class TargetTable
-  attr_accessor :db, :name, :rule, :filtered_map, :filtered_target_fields, :filtered_source_fields, :query_params
+  attr_accessor :db, :name, :rule, :filtered_map, :filtered_target_fields, :filtered_source_fields, :query_params,:sql_keywords
   def initialize(name)
     self.db = DBConfig.new()
     self.name=name
@@ -8,6 +8,7 @@ class TargetTable
     self.filtered_target_fields = filtered_map.keys
     self.filtered_source_fields = filtered_target_fields.collect{|f| filtered_map[f].class.name == "String" ? filtered_map[f] : filtered_map[f][0]}
     self.query_params = ConfigRules::MIGRATION_RULES[name][:query_params]
+    self.sql_keywords = ["NULL","NOW()"]
   end
 
   def get_fields_in_order
@@ -16,7 +17,8 @@ class TargetTable
   end
 
   def embed_string_in_quotes(arr)
-    arr.collect { |a| a.class.to_s=="String" ? "'#{a}'" : a }
+
+    arr.collect { |a| (a.class.to_s=="String" && !sql_keywords.include?(a) ? "'#{a}'" : a) }
   end
 
   # warehouse_b2b_development
@@ -36,6 +38,7 @@ class TargetTable
     record=(0..filtered_target_fields.size-1).collect do |index|
       field = filtered_target_fields[index]
       value = row[index]
+      value = 'NULL' if value.nil?
       (filtered_map[field].class.name == "Array" ?  filtered_map[field][1].call(value) : value)
     end
     embed_string_in_quotes(record)

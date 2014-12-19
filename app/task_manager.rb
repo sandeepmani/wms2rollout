@@ -70,7 +70,7 @@ class TaskManager
     end
   end
 
-  def truncate_tables(table_arr)
+  def truncate(table_arr)
     table_arr.each do |table_name|
       self.task_queue << {:name=>:truncate_table,:args=>[table_name]}
     end
@@ -167,6 +167,7 @@ class TaskManager
     end
 
     activity << "at #{Time.now}"
+    puts activity
     add_activity(activity)
     #############################################################
 
